@@ -1,73 +1,75 @@
-final class ShareViewModel {
+import UniformTypeIdentifiers
+import Vision
+import SwiftUI
+
+final class ShareViewModel: ObservableObject {
+    var itemProviders: [NSItemProvider]
+    var extensionContext: NSExtensionContext?
+    @Published var text: String?
     
-//    private func updateDoc(accessToken: String) {
-//        let documentId = "1QEsqNiA9de5VNfZ9zauN23-daDklB-_kLUGPSRPOa7o"
-//        
-//        // Define the URL for the API call
-//        https://docs.google.com/document/u/0/
-//        let urlString = "https://docs.googleapis.com/v1/documents/\(documentId):batchUpdate"
-//        guard let url = URL(string: urlString) else {
-//            print("Invalid URL")
-//            return
-//        }
-//        
-//        let updateRequest: [String: Any] = [
-//            "requests": [
-//                [
-//                    "insertText": [
-//                        "location": [
-//                            "index": 1  // Change the index to where you want to insert text
-//                        ],
-//                        "text": "Hello, this is the new text inserted into the document!"
-//                    ]
-//                ]
-//            ]
-//        ]
-//        
-//        guard let jsonData = try? JSONSerialization.data(withJSONObject: updateRequest, options: []) else {
-//            print("Failed to serialize JSON")
-//            return
-//        }
-//        
-//        // Create the URLRequest
-//        var request = URLRequest(url: url)
-//        request.httpMethod = "POST"
-//        
-//        // Set the Authorization header with the Bearer token
-//        
-//        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-//        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-//        request.httpBody = jsonData
-//        
-//        // Perform the network request
-//        let task = URLSession.shared.dataTask(with: request) { data, response, error in
-//            if let error = error {
-//                print("Error making request: \(error)")
-//                return
-//            }
-//            
-//            if let httpResponse = response as? HTTPURLResponse {
-//                if httpResponse.statusCode == 200 {
-//                    print("Request succeeded")
-//                    
-//                    // Process the response data (if needed)
-//                    if let data = data {
-//                        do {
-//                            // For example, parse the response as JSON
-//                            if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
-//                                print("Response JSON: \(json)")
-//                            }
-//                        } catch {
-//                            print("Error parsing JSON: \(error)")
-//                        }
-//                    }
-//                } else {
-//                    print("Request failed with status code: \(httpResponse.statusCode)")
-//                }
-//            }
-//        }
-//        
-//        // Start the network request
-//        task.resume()
-//    }
+    init(itemProviders: [NSItemProvider], extensionContext: NSExtensionContext?) {
+        self.itemProviders = itemProviders
+        self.extensionContext = extensionContext
+    }
+    
+    func getImage() async -> UIImage? {
+        do {
+            let item = self.itemProviders.first!
+            let data = try! await item.loadDataRepresentation(for: .image)
+            return UIImage(data: data)
+        } catch {
+            print("Error")
+        }
+    }
+    
+    func extractTextFromImage(from image: UIImage) {
+        guard let image = image.cgImage else {
+            return
+        }
+        
+        let request = VNRecognizeTextRequest { request, error in
+            if let error = error {
+                print("Error during OCR: \(error.localizedDescription)")
+                return
+            }
+            
+            var recognizedText = ""
+            for observation in request.results as! [VNRecognizedTextObservation] {
+                guard let topCandidate = observation.topCandidates(1).first else { continue }
+                recognizedText += topCandidate.string + "\n"
+            }
+            self.text = recognizedText.replacingOccurrences(of: "\n", with: " ")
+        }
+        
+        let handler = VNImageRequestHandler(cgImage: image, options: [:])
+        try? handler.perform([request])
+    }
+    
+    func sendUp(text: String) async {
+        if let userDefaults = UserDefaults(suiteName: "group.com.brandonaubrey.ListBuilder.sg"),
+            let value1 = userDefaults.string(forKey: "accessToken") {
+            let nm = NetworkManager(accessToken: value1)
+            Task {
+                do {
+                    try await nm.sendData(endpoint: .sendToDocs(docId: "1ByPzag3JZUHSHJVaHZt7udDpG1iFKO0qV-c95G0ltQU"), text: text)
+                } catch let error {
+                    print(error)
+                }
+            }
+        }
+    }
+}
+
+extension NSItemProvider {
+    func loadDataRepresentation(for type: UTType) async throws -> Data {
+        return try await withCheckedThrowingContinuation { continuation in
+            self.loadDataRepresentation(for: type) { data, error in
+                if let data = data {
+                    continuation.resume(returning: data)
+                } else if let error = error {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
 }

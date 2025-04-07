@@ -1,99 +1,235 @@
 import SwiftUI
-import Vision
-import GoogleSignIn
 
 struct ShareView: View {
-    var itemProviders: [NSItemProvider]
-    var extensionContext: NSExtensionContext?
+    @StateObject var viewModel: ShareViewModel
+    
     var body: some View {
         VStack {
-//            if let text = myText {
-//                Text(text)
-//            }
-            
-            Button(action: {
-                makeNetworkCall()
-            }, label: {
-                Text("Send to Google")
-            })
+            if let text = self.viewModel.text {
+                Text(text)
+                Button(action: {
+                    Task {
+                        //TODO: Start spinner
+                        await self.viewModel.sendUp(text: text)
+                    }
+                }, label: {
+                    Text("Send to Google")
+                })
+            }
         }
         .onAppear {
-//            getText()
+            //            Task {
+            //                let image = await self.viewModel.getImage()
+            //                //Shoudl this be on background thread?
+            //                self.viewModel.extractTextFromImage(from: image!)
+            //            }
         }
     }
-    
-    private func makeNetworkCall() {
-
-        let networkManager = NetworkManager(accessToken: "")
-        let docId = "1QEsqNiA9de5VNfZ9zauN23-daDklB-_kLUGPSRPOa7o"
-        // Move out of Task
-        Task {
-            try await networkManager.sendData(endpoint: .sendToDocs(docId: docId))
-        }
-    }
-    
-    private func getText(image: CGImage? = nil) {
-        DispatchQueue.global(qos: .userInteractive).async {
-            let item = self.itemProviders.first!
-            item.loadDataRepresentation(for: .image) { data, error in
-                if let data, let fullImage = UIImage(data: data) {
-                    DispatchQueue.main.async {
-                        extractTextFromImage(fullImage)
-                        print(fullImage)
-                    }
-                }
-            }
-        }
-    }
-    
-    func extractTextFromImage(_ image: UIImage) {
-        guard let cgImage = image.cgImage else {
-            return
-        }
-        
-        let request = VNRecognizeTextRequest { request, error in
-            if let error = error {
-                print("Error during OCR: \(error.localizedDescription)")
-                return
-            }
-            
-            var recognizedText = ""
-            for observation in request.results as! [VNRecognizedTextObservation] {
-                guard let topCandidate = observation.topCandidates(1).first else { continue }
-                recognizedText += topCandidate.string + "\n"
-            }
-            
-//            self.myText = recognizedText
-            print(recognizedText)
-            // Now send the extracted text to Google Docs (or process it further)
-//            self.sendTextToGoogleDocs(recognizedText)
-        }
-        
-        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-        try? handler.perform([request])
-    }
-        
-//        for provider in itemProviders {
-//
-//        }
-//        guard let image = image else { return }
-//
-//          let request = VNRecognizeTextRequest { request, error in
-//              if let error = error {
-//                  print("Error during OCR: \(error.localizedDescription)")
-//                  return
-//              }
-//
-//              var recognizedText = ""
-//              for observation in request.results as! [VNRecognizedTextObservation] {
-//                  guard let topCandidate = observation.topCandidates(1).first else { continue }
-//                  recognizedText += topCandidate.string + "\n"
-//              }
-//
-//              print(recognizedText)
-//          }
-//
-//          let handler = VNImageRequestHandler(cgImage: image, options: [:])
-//          try? handler.perform([request])
-
 }
+
+
+
+// Async function to recognize text from an image
+//    func recognizeText(from image: UIImage) async -> String? {
+//        // Convert UIImage to CIImage
+//        guard let ciImage = CIImage(image: image) else {
+//            print("Unable to create CIImage from UIImage.")
+//            return nil
+//        }
+//
+//        // Create a text recognition request
+//        let textRequest = VNRecognizeTextRequest { request, error in
+//            // Check for errors
+//            if let error = error {
+//                print("Text recognition failed: \(error.localizedDescription)")
+//                return
+//            }
+//
+//            // Process recognized text
+//            guard let observations = request.results as? [VNRecognizedTextObservation] else {
+//                print("No text found.")
+//                return
+//            }
+//
+//            // Concatenate recognized text from all observations
+//            var text = ""
+//            for observation in observations {
+//                if let topCandidate = observation.topCandidates(1).first {
+//                    text += topCandidate.string + "\n"
+//                }
+//            }
+//
+//            // Return the recognized text asynchronously
+//            Task { @MainActor in
+//                // Use the result (UI update on main thread)
+//                if text.isEmpty {
+//                    self.text = "No text was recognized."
+//                } else {
+//                    self.text = text
+//                }
+//            }
+//        }
+//
+//        // Set the recognition level (optional)
+//        textRequest.recognitionLevel = .accurate
+//
+//        // Create a request handler
+//        let requestHandler = VNImageRequestHandler(ciImage: ciImage, options: [:])
+//
+//        do {
+//            // Perform the request asynchronously
+//            try await requestHandler.perform([textRequest])
+//            return nil
+//        } catch {
+//            print("Error performing text recognition: \(error.localizedDescription)")
+//            return nil
+//        }
+//    }
+
+//import AuthenticationServices
+//import GoogleSignIn
+//
+//final class AuthService: NSObject, ObservableObject, ASAuthorizationControllerDelegate  {
+//    
+//    func isLoggedIn() -> Bool {
+//        GIDSignIn.sharedInstance.currentUser != nil
+//    }
+//    
+//    func googlePreviousSession() {
+//        GIDSignIn.sharedInstance.restorePreviousSignIn { user, error in
+//            if let userDefaults = UserDefaults(suiteName: "group.com.brandonaubrey.ListBuilder.sg") {
+//                userDefaults.set(user?.accessToken.tokenString as AnyObject, forKey: "accessToken")
+//                userDefaults.synchronize()
+//            }
+////            UserDefaults.standard.set(user!.accessToken, forKey: "Access Token")
+////            self.updateDoc(accessToken: user!.accessToken.tokenString)
+//        }
+//    }
+//    
+//
+//
+//    func googleSignIn(view: UIViewController) {
+//        
+//        let clientID = "342648598752-nf6j0cmo2sc4omk4g5blod9q7mgjarf6.apps.googleusercontent.com"
+////        // Create Google Sign In configuration object.
+//        let config = GIDConfiguration(clientID: clientID)
+////        
+////        // As you’re not using view controllers to retrieve the presentingViewController, access it through
+////        // the shared instance of the UIApplication
+////        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
+////        guard let rootViewController = windowScene.windows.first?.rootViewController else { return }
+////        
+////        // Start the sign in flow!
+//        GIDSignIn.sharedInstance.configuration = config
+//        
+//        GIDSignIn.sharedInstance.signIn(withPresenting: view, hint: nil, additionalScopes: ["https://www.googleapis.com/auth/documents"]) {
+//            [unowned self] user, error in
+//            }
+//        }
+//        
+//        
+//        GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController, hint: nil, additionalScopes: ["https://www.googleapis.com/auth/documents"]) {
+//            [unowned self] user, error in
+//            
+//            //        GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController) { [unowned self] user, error in
+//            
+//            //      GIDSignIn.sharedInstance.signIn(with: config, presenting: rootViewController) { [unowned self] user, error in
+//            
+//            if let error = error {
+//                print("Error doing Google Sign-In, \(error)")
+//                return
+//            }
+//            
+//            
+//            doCall(user: user!.user)
+//            
+//            GIDSignIn.sharedInstance.currentUser?.accessToken
+//            print("-----")
+//            print(user?.user.accessToken.tokenString)
+//            print("-----")
+//            //            guard let authentication = user?.authentication else { return }
+//            //            let accessToken = authentication.accessToken
+//            //            print(user?.user.profile)
+//            //
+//            //          guard
+//            //            let authentication = user?.authentication,
+//            //            let idToken = authentication.idToken
+//            //          else {
+//            //            print("Error during Google Sign-In authentication, \(error)")
+//            //            return
+//            //          }
+//            //
+//            //          let credential = GoogleAuthProvider.credential(withIDToken: idToken,
+//            //                                                         accessToken: authentication.accessToken)
+//            //
+//            //
+//            //            // Authenticate with Firebase
+//            //            Auth.auth().signIn(with: credential) { authResult, error in
+//            //                if let e = error {
+//            //                    print(e.localizedDescription)
+//            //                }
+//            //
+//            //                print("Signed in with Google")
+//            //            }
+//        }
+//        
+//        func doCall(user: GIDGoogleUser) {
+//            
+//            // Define the URL of the API endpoint
+//            let urlString = "https://docs.googleapis.com/v1/documents/1ByPzag3JZUHSHJVaHZt7udDpG1iFKO0qV-c95G0ltQU"
+//            guard let url = URL(string: urlString) else {
+//                print("Invalid URL")
+//                return
+//            }
+//            
+//            // Create a URLRequest
+//            var request = URLRequest(url: url)
+//            request.httpMethod = "GET" // or "POST" if you need to send data
+//            
+//            // Set the Authorization header with the Bearer token
+//            let authToken = user.accessToken.tokenString // Replace with your actual token
+//            request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+//            
+//            // You can add additional headers if necessary
+//            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+//            
+//            // Perform the network request
+//            let task = URLSession.shared.dataTask(with: request) { data, response, error in
+//                if let error = error {
+//                    print("Error making request: \(error)")
+//                    return
+//                }
+//                
+//                if let httpResponse = response as? HTTPURLResponse {
+//                    // Check for success status code
+//                    if httpResponse.statusCode == 200 {
+//                        print("Request succeeded")
+//                        
+//                        // Process the response data
+//                        if let data = data {
+//                            do {
+//                                // For example, let's parse the response as JSON
+//                                if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
+//                                    print("Response JSON: \(json)")
+//                                }
+//                            } catch {
+//                                print("Error parsing JSON: \(error)")
+//                            }
+//                        }
+//                    } else {
+//                        print("Request failed with status code: \(httpResponse.statusCode)")
+//                    }
+//                }
+//            }
+//            
+//            // Start the network request
+//            task.resume()
+//            
+//        }
+//    }
+//        
+//    func googleSignOut() {
+//        GIDSignIn.sharedInstance.signOut()
+//    }
+//}
+//

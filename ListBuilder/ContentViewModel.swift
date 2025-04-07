@@ -4,24 +4,19 @@ import AuthenticationServices
 
 final class AuthService: NSObject, ObservableObject, ASAuthorizationControllerDelegate  {
     
-    
     func isLoggedIn() -> Bool {
         GIDSignIn.sharedInstance.currentUser != nil
     }
     
     func googlePreviousSession() {
         GIDSignIn.sharedInstance.restorePreviousSignIn { user, error in
-            print(user?.accessToken.expirationDate)
-            print(user?.accessToken.tokenString)
-            print("Hello")
-//            UserDefaults.standard.set(user!.accessToken, forKey: "Access Token")
-
-            
-//            self.updateDoc(accessToken: user!.accessToken.tokenString)
+            if let userDefaults = UserDefaults(suiteName: "group.com.brandonaubrey.ListBuilder.sg") {
+                userDefaults.set(user?.accessToken.tokenString, forKey: "accessToken")
+                userDefaults.set(user?.accessToken.expirationDate, forKey: "experationDate")
+                userDefaults.synchronize()
+            }
         }
     }
-    
-
 
     func googleSignIn() {
         
@@ -38,8 +33,7 @@ final class AuthService: NSObject, ObservableObject, ASAuthorizationControllerDe
         GIDSignIn.sharedInstance.configuration = config
         
         
-        GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController, hint: nil, additionalScopes: ["https://www.googleapis.com/auth/documents"]) {
-            [unowned self] user, error in
+        GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController, hint: nil, additionalScopes: ["https://www.googleapis.com/auth/documents"]) { user, error in
             
             //        GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController) { [unowned self] user, error in
             
@@ -54,39 +48,12 @@ final class AuthService: NSObject, ObservableObject, ASAuthorizationControllerDe
             doCall(user: user!.user)
             
             GIDSignIn.sharedInstance.currentUser?.accessToken
-            print("-----")
-            print(user?.user.accessToken.tokenString)
-            print("-----")
-            //            guard let authentication = user?.authentication else { return }
-            //            let accessToken = authentication.accessToken
-            //            print(user?.user.profile)
-            //
-            //          guard
-            //            let authentication = user?.authentication,
-            //            let idToken = authentication.idToken
-            //          else {
-            //            print("Error during Google Sign-In authentication, \(error)")
-            //            return
-            //          }
-            //
-            //          let credential = GoogleAuthProvider.credential(withIDToken: idToken,
-            //                                                         accessToken: authentication.accessToken)
-            //
-            //
-            //            // Authenticate with Firebase
-            //            Auth.auth().signIn(with: credential) { authResult, error in
-            //                if let e = error {
-            //                    print(e.localizedDescription)
-            //                }
-            //
-            //                print("Signed in with Google")
-            //            }
         }
         
         func doCall(user: GIDGoogleUser) {
             
             // Define the URL of the API endpoint
-            let urlString = "https://docs.googleapis.com/v1/documents/1QEsqNiA9de5VNfZ9zauN23-daDklB-_kLUGPSRPOa7o"
+            let urlString = "https://docs.googleapis.com/v1/documents/1ByPzag3JZUHSHJVaHZt7udDpG1iFKO0qV-c95G0ltQU"
             guard let url = URL(string: urlString) else {
                 print("Invalid URL")
                 return
@@ -142,4 +109,3 @@ final class AuthService: NSObject, ObservableObject, ASAuthorizationControllerDe
         GIDSignIn.sharedInstance.signOut()
     }
 }
-

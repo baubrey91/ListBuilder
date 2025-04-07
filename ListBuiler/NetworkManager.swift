@@ -4,9 +4,8 @@ import Foundation
 // MARK: - Protocol for dependency injection
 
 protocol NetworkService {
-    func sendData(endpoint: Endpoint) async throws
+    func sendData(endpoint: Endpoint, text: String) async throws
 //    func sendData<T: Decodable>(endpoint: Endpoint) async throws -> T {
-
 }
 
 // MARK: Enums
@@ -43,22 +42,25 @@ final class NetworkManager: NetworkService {
     
     init(session: URLSession = .shared, accessToken: String) {
         self.session = session
-        self.accessToken = "ya29.a0AeXRPp4UqoXMpvbYk5uZZXadJFZGGdqf8sDYJadbTkPa94FAPvGB0KN5zmqbkdoloSukANKAJNDnsOFuS3T1kUJTDK6p4Aow9ZhbNqi4VIrf2FkXawWsdYOrhsWOGVoIqcyQMIiYuNPS2VqHCetvahSDUJNj6U1C8BJQ8oPNaCgYKARESARASFQHGX2Mi-M4qoKi5qZ2av3O9OGApNw0175"
+        self.accessToken = accessToken
+
+//        self.accessToken = "ya29.a0AeXRPp4UqoXMpvbYk5uZZXadJFZGGdqf8sDYJadbTkPa94FAPvGB0KN5zmqbkdoloSukANKAJNDnsOFuS3T1kUJTDK6p4Aow9ZhbNqi4VIrf2FkXawWsdYOrhsWOGVoIqcyQMIiYuNPS2VqHCetvahSDUJNj6U1C8BJQ8oPNaCgYKARESARASFQHGX2Mi-M4qoKi5qZ2av3O9OGApNw0175"
         
     }
     
     // Function to fetch data using async/await
-    func sendData(endpoint: Endpoint) async throws {
+    func sendData(endpoint: Endpoint, text: String) async throws {
         guard let url = endpoint.url() else {
             throw NetworkError.badURL
         }
         
+        print(url.absoluteString)
         // Make Network request
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         
         let location = InsertLocation(index: 1)
-        let insertText = InsertText(location: location, text: "Hello")
+        let insertText = InsertText(location: location, text: text)
         let updateRequest = Update(requests: [Request(insertText: insertText)])
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
@@ -70,6 +72,8 @@ final class NetworkManager: NetworkService {
         let (data, response) = try await session.data(for: request)
         
         // Check for 200
+        print(data)
+        print(response)
         guard let httpResponse = response as? HTTPURLResponse,
                 (200...299).contains(httpResponse.statusCode) else {
             throw NetworkError.invalidResponse

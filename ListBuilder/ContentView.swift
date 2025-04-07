@@ -4,6 +4,7 @@ struct ContentView: View {
     @StateObject var authService = AuthService()
 
     var body: some View {
+        
         VStack {
             if authService.isLoggedIn() {
                 VStack {
@@ -16,8 +17,8 @@ struct ContentView: View {
                 }
             }
             Button {
-                authService.googleSignIn()
-//                authService.googlePreviousSession()
+//                authService.googleSignIn()
+                authService.googlePreviousSession()
             } label: {
                 Text("Login")
             }
