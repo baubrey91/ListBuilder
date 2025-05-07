@@ -4,25 +4,41 @@ struct ShareView: View {
     @StateObject var viewModel: ShareViewModel
     
     var body: some View {
-        VStack {
-            if let text = self.viewModel.text {
-                Text(text)
-                Button(action: {
+        
+        switch self.viewModel.state {
+        case .loading:
+            ProgressView()
+                .onAppear {
                     Task {
-                        //TODO: Start spinner
-                        await self.viewModel.sendUp(text: text)
+                        // TODO: Remove force unwrap
+                        let image = try! await self.viewModel.getImage()
+                        //                //Should this be on background thread?
+                        await self.viewModel.extractTextFromImage(from: image)
                     }
-                }, label: {
-                    Text("Send to Google")
-                })
-            }
-        }
-        .onAppear {
-            //            Task {
-            //                let image = await self.viewModel.getImage()
-            //                //Shoudl this be on background thread?
-            //                self.viewModel.extractTextFromImage(from: image!)
-            //            }
+                }
+        case .loadedWithNoResult:
+            Text("No Results")
+        default:
+//            ScrollView {
+                VStack {
+                    Text("This is the text we found")
+                    Text(viewModel.text)
+                    TextEditor(text: $viewModel.text)
+                        .frame(minHeight: 40, maxHeight: 200, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal)
+                    Button(action: {
+                        Task {
+                            //TODO: Start spinner
+                            await self.viewModel.sendUp(text: viewModel.text)
+                        }
+                    }, label: {
+                        Text("Send to Google")
+                    })
+                }
+                //            }
+//            }
         }
     }
 }

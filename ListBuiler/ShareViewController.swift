@@ -1,12 +1,10 @@
 import UIKit
 import SwiftUI
-import UniformTypeIdentifiers
 
 final class ShareViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .red
         isModalInPresentation = true
         
         if let itemProviders = (extensionContext?.inputItems as? [NSExtensionItem])?.first?.attachments {
@@ -20,23 +18,39 @@ final class ShareViewController: UIViewController {
     }
     
     override func viewWillAppear(_ animated: Bool) {
-        //TODO: Refactor
         super.viewWillAppear(animated)
-        self.checkAccessToken()
+//        self.checkAccessToken()
     }
     
     private func checkAccessToken() {
         guard let userDefaults = UserDefaults(suiteName: "group.com.brandonaubrey.ListBuilder.sg"),
-           let experationDate = userDefaults.object(forKey: "expirationDate") as? Date else {
-            // Access Token/ Expiration date is not set
+              userDefaults.object(forKey: "accessToken") != nil,
+              let expirationDate = userDefaults.object(forKey: "expirationDate") as? Date else {
+            // No token, need to login
             self.openParentApp()
             return
         }
+        
         // Token has expired
-        if experationDate < Date() {
+        if expirationDate < Date() {
             self.openParentApp()
         }
+        // Start share extension normally
     }
+    
+//    private func checkAccessToken() {
+//        guard let userDefaults = UserDefaults(suiteName: "group.com.brandonaubrey.ListBuilder.sg"),
+//              let accesToken = userDefaults.object(forKey: <#T##String#>),
+//           let experationDate = userDefaults.object(forKey: "expirationDate") else {
+//            // Access Token/ Expiration date is not set
+//            self.openParentApp()
+//            return
+//        }
+//        // Token has expired
+////        if experationDate < Date() {
+////            self.openParentApp()
+////        }
+//    }
     
     private func openParentApp() {
         if let url = URL(string: "mainApp://") {

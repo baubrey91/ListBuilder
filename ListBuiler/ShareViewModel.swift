@@ -1,35 +1,67 @@
 import UniformTypeIdentifiers
 import Vision
 import SwiftUI
+import NetworkingLB
+
+enum ViewModelState {
+    case loading
+    case loadedWithResult
+    case loadedWithNoResult
+    case failed(Error)
+}
 
 final class ShareViewModel: ObservableObject {
+    @Published var text = "Hello"
+    @Published var state: ViewModelState = .loading
+    
     var itemProviders: [NSItemProvider]
     var extensionContext: NSExtensionContext?
-    @Published var text: String?
+
     
     init(itemProviders: [NSItemProvider], extensionContext: NSExtensionContext?) {
         self.itemProviders = itemProviders
         self.extensionContext = extensionContext
     }
     
-    func getImage() async -> UIImage? {
+    enum tempError: Error {
+        case foo
+    }
+    
+//    func getImage() async throws -> UIImage {
+//        let extensionAttachments = (self.extensionContext!.inputItems.first as! NSExtensionItem).attachments
+//        for provider in extensionAttachments! {
+//            // loadItem can be used to extract different types of data from NSProvider object in attachements
+//            provider.loadItem(forTypeIdentifier: "public.image") { data, _ in
+//                // Load Image data from image URL
+//                guard let url = data as? URL,
+//                      let imageData = try? Data(contentsOf: url) else { return nil }
+//                // Load Image as UIImage from image data
+//                let uiimg = UIImage(data: imageData)!
+//                // Convert to SwiftUI Image
+//                let image = Image(uiImage: uiimg)
+//                // .. Do something with the Image
+//            }
+//        }
+//    }
+    
+    func getImage() async throws -> CGImage {
         do {
+            //TODO: Remove force unwrap
             let item = self.itemProviders.first!
-            let data = try! await item.loadDataRepresentation(for: .image)
-            return UIImage(data: data)
-        } catch {
-            print("Error")
+            let imageUrl = try await item.loadItem(forTypeIdentifier: UTType.image.identifier) as? URL
+            if let cgImage = imageUrl?.toCGImage() {
+                return cgImage
+            } else {
+                throw tempError.foo
+            }
+        } catch let error {
+            throw error
         }
     }
     
-    func extractTextFromImage(from image: UIImage) {
-        guard let image = image.cgImage else {
-            return
-        }
-        
+    func extractTextFromImage(from image: CGImage) async {
         let request = VNRecognizeTextRequest { request, error in
             if let error = error {
-                print("Error during OCR: \(error.localizedDescription)")
                 return
             }
             
@@ -38,7 +70,10 @@ final class ShareViewModel: ObservableObject {
                 guard let topCandidate = observation.topCandidates(1).first else { continue }
                 recognizedText += topCandidate.string + "\n"
             }
-            self.text = recognizedText.replacingOccurrences(of: "\n", with: " ")
+            Task { @MainActor in
+                self.text = recognizedText.replacingOccurrences(of: "\n", with: " ").lowercased()
+                self.state = recognizedText.isEmpty ? .loadedWithNoResult : .loadedWithResult
+            }
         }
         
         let handler = VNImageRequestHandler(cgImage: image, options: [:])
@@ -61,15 +96,34 @@ final class ShareViewModel: ObservableObject {
 }
 
 extension NSItemProvider {
-    func loadDataRepresentation(for type: UTType) async throws -> Data {
+    func loadDataRepresentation(for type: UTType) async throws -> CGImage? {
         return try await withCheckedThrowingContinuation { continuation in
-            self.loadDataRepresentation(for: type) { data, error in
-                if let data = data {
-                    continuation.resume(returning: data)
-                } else if let error = error {
-                    continuation.resume(throwing: error)
-                }
+            self.loadItem(forTypeIdentifier: "public.image") { data, error in
+                continuation.resume(returning: nil)
+                // Load Image data from image URL
+//                let url = data as! URL
+//                let imageData = try! Data(contentsOf: url)
+//                //TODO: Throw errors
+//                continuation.resume(returning: UIImage(data: imageData)!.cgImage!)
             }
         }
+            
+//        return try await withCheckedThrowingContinuation { continuation in
+//            self.loadDataRepresentation(for: type) { data, error in
+//                if let data = data {
+//                    continuation.resume(returning: data)
+//                } else if let error = error {
+//                    continuation.resume(throwing: error)
+//                }
+//            }
+//        }
+    }
+}
+
+extension URL {
+    func toCGImage() -> CGImage? {
+        guard let imageData = try? Data(contentsOf: self),
+              let uiImage = UIImage(data: imageData) else { return nil }
+        return uiImage.cgImage
     }
 }

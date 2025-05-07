@@ -2,23 +2,38 @@ import SwiftUI
 import GoogleSignIn
 import AuthenticationServices
 
-final class AuthService: NSObject, ObservableObject, ASAuthorizationControllerDelegate  {
+final class HomeViewModel: NSObject, ObservableObject, ASAuthorizationControllerDelegate  {
     
-    func isLoggedIn() -> Bool {
-        GIDSignIn.sharedInstance.currentUser != nil
-    }
+    @Published var isLoggedIn = false
     
     func googlePreviousSession() {
         GIDSignIn.sharedInstance.restorePreviousSignIn { user, error in
-            if let userDefaults = UserDefaults(suiteName: "group.com.brandonaubrey.ListBuilder.sg") {
-                userDefaults.set(user?.accessToken.tokenString, forKey: "accessToken")
-                userDefaults.set(user?.accessToken.expirationDate, forKey: "experationDate")
-                userDefaults.synchronize()
+            if let user = user {
+                self.saveTokenData(user: user)
+                self.isLoggedIn = true
             }
+        }
+    }
+    
+    private func saveTokenData(user: GIDGoogleUser) {
+        if let userDefaults = UserDefaults(suiteName: "group.com.brandonaubrey.ListBuilder.sg"),
+        let expirationDate = user.accessToken.expirationDate {
+            userDefaults.set(user.accessToken.tokenString, forKey: "accessToken")
+            userDefaults.set(expirationDate, forKey: "expirationDate")
+            userDefaults.synchronize()
         }
     }
 
     func googleSignIn() {
+        
+        // TODO: - put this in plist
+        /*
+         guard let clientID = GIDSignIn.sharedInstance.clientID else { return }
+
+         let config = GIDConfiguration(clientID: clientID)
+
+         */
+        
         
         let clientID = "342648598752-nf6j0cmo2sc4omk4g5blod9q7mgjarf6.apps.googleusercontent.com"
         // Create Google Sign In configuration object.
@@ -32,8 +47,10 @@ final class AuthService: NSObject, ObservableObject, ASAuthorizationControllerDe
         // Start the sign in flow!
         GIDSignIn.sharedInstance.configuration = config
         
-        
-        GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController, hint: nil, additionalScopes: ["https://www.googleapis.com/auth/documents"]) { user, error in
+  
+        GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController, hint: nil, additionalScopes: ["https://www.googleapis.com/auth/drive"]) { result, error in
+
+//        GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController, hint: nil, additionalScopes: ["https://www.googleapis.com/auth/documents"]) { result, error in
             
             //        GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController) { [unowned self] user, error in
             
@@ -43,12 +60,15 @@ final class AuthService: NSObject, ObservableObject, ASAuthorizationControllerDe
                 print("Error doing Google Sign-In, \(error)")
                 return
             }
+            if let user = result?.user {
+                self.saveTokenData(user: user)
+                self.isLoggedIn = true
+            }
+//            doCall(user: user!.user)
             
-            
-            doCall(user: user!.user)
-            
-            GIDSignIn.sharedInstance.currentUser?.accessToken
         }
+        
+
         
         func doCall(user: GIDGoogleUser) {
             
@@ -107,5 +127,6 @@ final class AuthService: NSObject, ObservableObject, ASAuthorizationControllerDe
         
     func googleSignOut() {
         GIDSignIn.sharedInstance.signOut()
+        self.isLoggedIn = false
     }
 }
