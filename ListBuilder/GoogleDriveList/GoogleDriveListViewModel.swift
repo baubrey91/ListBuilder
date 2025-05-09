@@ -30,6 +30,7 @@ final class GoogleDriveListViewModel: ObservableObject {
             do {
                 let fileInfo: String = try await nm.getData(endpoint: .fetchFileInfo(fileId: fileId))
                 let insertLine = fileInfo.components(separatedBy: .newlines).count
+                print(insertLine)
                 PersistenceManager.shared.setInsertLine(line: insertLine)
             } catch let error {
                 print(error)

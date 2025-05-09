@@ -1,6 +1,7 @@
 import SwiftUI
 import GoogleSignIn
 import AuthenticationServices
+import NetworkingLB
 
 final class HomeViewModel: NSObject, ObservableObject, ASAuthorizationControllerDelegate  {
     
@@ -16,12 +17,10 @@ final class HomeViewModel: NSObject, ObservableObject, ASAuthorizationController
     }
     
     private func saveTokenData(user: GIDGoogleUser) {
-        if let userDefaults = UserDefaults(suiteName: "group.com.brandonaubrey.ListBuilder.sg"),
-        let expirationDate = user.accessToken.expirationDate {
-            userDefaults.set(user.accessToken.tokenString, forKey: "accessToken")
-            userDefaults.set(expirationDate, forKey: "expirationDate")
-            userDefaults.synchronize()
-        }
+        PersistenceManager.shared.setAccessToken(
+            accessToken: user.accessToken.tokenString,
+            expirationDate: user.accessToken.expirationDate
+        )
     }
 
     func googleSignIn() {
@@ -126,6 +125,7 @@ final class HomeViewModel: NSObject, ObservableObject, ASAuthorizationController
     }
         
     func googleSignOut() {
+        // TODO: Clear all user defaults
         GIDSignIn.sharedInstance.signOut()
         self.isLoggedIn = false
     }

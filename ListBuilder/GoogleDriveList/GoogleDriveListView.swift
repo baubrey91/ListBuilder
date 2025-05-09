@@ -22,11 +22,6 @@ struct GoogleDriveListView: View {
             } else {
                 Button(file.name) {
                     self.viewModel.setSelectedFile(file: file)
-//                    if let userDefaults = UserDefaults(suiteName: "group.com.brandonaubrey.ListBuilder.sg") {
-//                        let encoded = Document(id: file.id, name: file.name).encoded
-//                        userDefaults.set(encoded, forKey: "fileId")
-//                        userDefaults.synchronize()
-//                    }
                 }
             }
         }

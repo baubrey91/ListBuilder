@@ -31,7 +31,8 @@ struct ShareView: View {
                     Button(action: {
                         Task {
                             //TODO: Start spinner
-                            await self.viewModel.sendUp(text: viewModel.text)
+                            // TODO: Fix
+                            await self.viewModel.sendUp(text: viewModel.text, insertIndex: 1)
                         }
                     }, label: {
                         Text("Send to Google")

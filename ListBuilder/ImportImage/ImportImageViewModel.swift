@@ -296,18 +296,18 @@ final class ImportImageViewModel: ObservableObject {
     }
     
     func sendToGoogle(text: String) {
-        if let userDefaults = UserDefaults(suiteName: "group.com.brandonaubrey.ListBuilder.sg"),
-            let value1 = userDefaults.string(forKey: "accessToken"),
-            let fileData = userDefaults.data(forKey: "fileId"),
-            let file = try? JSONDecoder().decode(Document.self, from: fileData) {
-            let nm = NetworkManager(accessToken: value1)
-            Task {
-                do {
-                    // Add Time stamp whens ending up
-                    try await nm.sendData(endpoint: .sendToDocs(docId: file.id), text: text + "\n")
-                } catch let error {
-                    print(error)
-                }
+        guard let accessToken = PersistenceManager.shared.getAccessToken(),
+              let file = PersistenceManager.shared.getFile() else { return }
+        let nm = NetworkManager(accessToken: accessToken)
+        Task {
+            do {
+                // Add Time stamp whens ending up
+                let string: String = try await nm.getData(endpoint: .fetchFileInfo(fileId: file.id))
+                let insertIndex = string.count
+                let endpoint: Endpoint = .sendToDocs(docId: file.id, insertIndex: insertIndex, text: "\n" + text)
+                try await nm.sendData(endpoint: endpoint)
+            } catch let error {
+                print(error)
             }
         }
     }

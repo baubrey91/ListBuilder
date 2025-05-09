@@ -80,13 +80,13 @@ final class ShareViewModel: ObservableObject {
         try? handler.perform([request])
     }
     
-    func sendUp(text: String) async {
+    func sendUp(text: String, insertIndex: Int) async {
         if let userDefaults = UserDefaults(suiteName: "group.com.brandonaubrey.ListBuilder.sg"),
             let value1 = userDefaults.string(forKey: "accessToken") {
             let nm = NetworkManager(accessToken: value1)
             Task {
                 do {
-                    try await nm.sendData(endpoint: .sendToDocs(docId: "1ByPzag3JZUHSHJVaHZt7udDpG1iFKO0qV-c95G0ltQU"), text: text)
+                    try await nm.sendData(endpoint: .sendToDocs(docId: "1ByPzag3JZUHSHJVaHZt7udDpG1iFKO0qV-c95G0ltQU", insertIndex: insertIndex, text: text))
                 } catch let error {
                     print(error)
                 }

@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Protocol for dependency injection
 
 protocol NetworkService {
-    func sendData(endpoint: Endpoint, text: String) async throws
+    func sendData(endpoint: Endpoint) async throws
     func getData<T: Decodable>(endpoint: Endpoint) async throws -> T
 }
 
@@ -53,7 +53,7 @@ public final class NetworkManager: NetworkService {
     }
     
     public func getData<T: Decodable>(endpoint: Endpoint) async throws -> T {
-        guard let url = endpoint.url() else {
+        guard let url = endpoint.url else {
             throw NetworkError.badURL
         }
         var request = URLRequest(url: url)
@@ -64,14 +64,13 @@ public final class NetworkManager: NetworkService {
         )
         
         let (data, response) = try await session.data(for: request)
-        print(response)
         
         guard let httpResponse = response as? HTTPURLResponse,
               (200...299).contains(httpResponse.statusCode) else {
             throw NetworkError.invalidResponse
         }
         //TODO: Clean up
-        if !endpoint.url()!.absoluteString.contains("text/plain") {
+        if !endpoint.url!.absoluteString.contains("text/plain") {
             do {
                 let decodedData = try JSONDecoder().decode(T.self, from: data)
                 return decodedData
@@ -98,30 +97,22 @@ public final class NetworkManager: NetworkService {
         throw NetworkError.decodingError
     }
     
+    
     // Function to fetch data using async/await
-    public func sendData(
-        endpoint: Endpoint,
-        text: String
-    ) async throws {
-        guard let url = endpoint.url() else {
-            throw NetworkError.badURL
-        }
+    public func sendData(endpoint: Endpoint) async throws {
+//        guard let url = endpoint.url() else {
+//            throw NetworkError.badURL
+//        }
         
         // Make Network request
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: endpoint.url!)
         request.httpMethod = "POST"
-        
-        let location = InsertLocation(index: 1)
-        let insertText = InsertText(location: location, text: text)
-        let updateRequest = Update(requests: [Request(insertText: insertText)])
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .prettyPrinted
         do {
-            let jsonData = try encoder.encode(updateRequest)
+//            let jsonData = try encoder.encode(updateRequest)
             
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = jsonData
+            request.httpBody = endpoint.httpBody
             let (_, response) = try await session.data(for: request)
             
             // Check for 200
@@ -129,7 +120,7 @@ public final class NetworkManager: NetworkService {
                   (200...299).contains(httpResponse.statusCode) else {
                 throw NetworkError.invalidResponse
             }
-        } catch {
+        } catch let error {
             throw NetworkError.encodingFailure
         }
     }
@@ -137,7 +128,7 @@ public final class NetworkManager: NetworkService {
 
 // Endpoints
 public enum Endpoint {
-    case sendToDocs(docId: String)
+    case sendToDocs(docId: String, insertIndex: Int, text: String)
     case fetchFiles(folderId: String)
     case fetchFileInfo(fileId: String)
     
@@ -152,7 +143,7 @@ public enum Endpoint {
     
     var path: String {
         switch self {
-        case .sendToDocs(let docId):
+        case .sendToDocs(let docId, _, _):
             "/v1/documents/\(docId):batchUpdate"
         case .fetchFiles:
             "/drive/v3/files"
@@ -176,7 +167,7 @@ public enum Endpoint {
         }
     }
 
-    func url() -> URL? {
+    var url: URL? {
         var components = URLComponents()
         components.scheme = "https"
         components.host = host
@@ -192,6 +183,37 @@ public enum Endpoint {
         }
         
         return url
+    }
+    
+    var httpBody: Data? {
+        switch self {
+        case .sendToDocs(let _, let insertIndex, let text):
+            let location = InsertLocation(index: insertIndex)
+            let insertText = InsertText(location: location, text: text)
+            let updateRequest = Update(requests: [Request(insertText: insertText)])
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .prettyPrinted
+            return try! encoder.encode(updateRequest)
+        default: return nil
+        }
+    }
+    
+    var request: URLRequest {
+        var request = URLRequest(url: self.url!)
+
+        switch self {
+        case .sendToDocs(let docId, let insertIndex, let text):
+            request.httpMethod = "POST"
+            let location = InsertLocation(index: insertIndex)
+            let insertText = InsertText(location: location, text: text)
+            let updateRequest = Update(requests: [Request(insertText: insertText)])
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .prettyPrinted
+            
+        default:
+            break
+        }
+        return request
     }
 }
 
@@ -210,60 +232,4 @@ struct Request: Codable {
 
 struct Update: Codable {
     let requests: [Request]
-}
-
-enum UserDefaultsKeys {
-    static let suiteName = "group.com.brandonaubrey.ListBuilder.sg"
-    static let fileKey = "fileId"
-    static let insertLineKey = "insertLine"
-}
-
-public struct PersistenceManager {
-    
-    public static let shared = PersistenceManager()
-    private let userDefaults = UserDefaults(suiteName: UserDefaultsKeys.suiteName)
-    
-    private init() {}
-    
-    public func setFile(file: DriveFile) {
-        guard let userDefaults,
-              let encoded = Document(id: file.id, name: file.name).encoded else {
-            return
-        }
-        userDefaults.set(encoded, forKey: UserDefaultsKeys.fileKey)
-        userDefaults.synchronize()
-    }
-    
-    public func setInsertLine(line: Int) {
-        guard let userDefaults else { return }
-        userDefaults.integer(forKey: UserDefaultsKeys.insertLineKey)
-        userDefaults.synchronize()
-    }
-}
-
-public struct Document: Codable {
-    public let id: String
-    let name: String
-    
-    var encoded: Data? {
-        try? JSONEncoder().encode(self)
-    }
-}
-
-public struct DriveFileList: Codable {
-    public let files: [DriveFile]
-}
-
-public struct DriveFile: Codable, Identifiable {
-    public let id: String
-    public let name: String
-    public let mimeType: String
-
-    public var isFolder: Bool {
-        return mimeType == "application/vnd.google-apps.folder"
-    }
-
-    public var isGoogleDoc: Bool {
-        return mimeType == "application/vnd.google-apps.document"
-    }
 }
