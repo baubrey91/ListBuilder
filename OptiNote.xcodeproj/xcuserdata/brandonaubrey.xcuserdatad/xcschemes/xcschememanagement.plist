@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>SchemeUserState</key>
+	<dict>
+		<key>OptiNote.xcscheme_^#shared#^_</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>1</integer>
+		</dict>
+		<key>OptiNoteExtension.xcscheme_^#shared#^_</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>2</integer>
+		</dict>
+		<key>OptiNoteShared.xcscheme_^#shared#^_</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>0</integer>
+		</dict>
+		<key>Promises (Playground) 1.xcscheme</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>4</integer>
+		</dict>
+		<key>Promises (Playground).xcscheme</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>3</integer>
+		</dict>
+	</dict>
+	<key>SuppressBuildableAutocreation</key>
+	<dict>
+		<key>39CD2FBC2DC06A86001D3F1F</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>CEB665692D975D3300431AA2</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>CEB665792D975D3400431AA2</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>CEB665832D975D3400431AA2</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>CEB6659A2D975F4500431AA2</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+	</dict>
+</dict>
+</plist>
