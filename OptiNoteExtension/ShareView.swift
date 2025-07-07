@@ -6,29 +6,36 @@ struct ShareView: View {
     @StateObject var viewModel: ShareViewModel
     
     var body: some View {
-        
         switch self.viewModel.state {
+        case .error(let error):
+            Text("\(error.localizedDescription)")
+            Button(action: {
+                self.viewModel.closeShareView()
+            }, label: {
+                Text(Styler.dismissText)
+            })
         case .loading:
             ProgressView()
                 .onAppear {
                     Task {
-                        // TODO: Remove force unwrap
-                        let image = try! await self.viewModel.getImage()
+                        guard let image = await self.viewModel.getImage() else { return }
+                        await MainActor.run {
+                            self.viewModel.verifySessionAndFile(image: image)
+                        }
                         //                //Should this be on background thread?
                         await self.viewModel.extractTextFromImage(from: image)
-                        await self.viewModel.verifySessionAndFile(image: image)
                     }
                 }
         case .loadedWithNoResult:
-            Text("No Results")
+            Text(Styler.noResults)
         default:
 //            ScrollView {
                 VStack {
-                    Text("Sending to: \(viewModel.currentFile)")
-                    Text("This is the text we found")
+                    Text(Styler.sendingToText(fileName: self.viewModel.currentFile?.name))
+                    Text(Styler.textFound)
                     Text(viewModel.text)
                     TextField(
-                        "No text found",
+                        Styler.noTextFound,
                         text: $viewModel.text,
                         axis: .vertical
                     )
@@ -36,28 +43,42 @@ struct ShareView: View {
                     .padding()
                     HStack {
                         Button(action: {
-                            self.viewModel.extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
+                            self.viewModel.closeShareView()
                         }, label: {
-                            Text("Dismiss")
+                            Text(Styler.dismissText)
                         })
                         Button(action: {
                             Task {
-                                //TODO: Start spinner
-                                // TODO: Fix
-                                await self.viewModel.sendUp(text: viewModel.text, insertIndex: 1)
+                                await self.viewModel.sendUp(text: viewModel.text)
                             }
                         }, label: {
-                            Text("Send to Google")
+                            Text(Styler.sendToGoogleText)
                         })
                     }
+                    HStack {
+                        Text(Styler.previousFiles)
+                        Picker(
+                            "Previous Files",
+                            selection: $viewModel.currentFile
+                        ) {
+                            ForEach(viewModel.previousFiles, id: \.self) { file in
+                                Text(file.name)
+                            }
+                        }
+                    }
+                    if self.viewModel.isSendingData {
+                        CustomSpinner()
+                    }
                 }
+
+                .padding()
                 .alert(isPresented: $viewModel.showingAlert) {
                     guard let alertType = self.viewModel.alertType else {
-                        return Alert(title: Text("Unknown Error"))
+                        return Alert(title: Text(Styler.unknownErrorText))
                     }
                    return Alert(
                         title: Text(alertType.alertText),
-                        dismissButton: .default(Text("Go to app")) {
+                        dismissButton: .default(Text(Styler.goToAppText)) {
                             self.viewModel.openParentApp(with: alertType.deepLinkUrl)
                         }
                     )
@@ -66,5 +87,21 @@ struct ShareView: View {
     }
 }
 
-
-
+private enum Styler {
+    static let dismissText = "Dismiss"
+    
+    static let noResults = "No results"
+    
+    static let textFound = "This is the text we found"
+    static let noTextFound = "No text found"
+    static let sendToGoogleText = "Send to Google"
+    
+    static let unknownErrorText = "Unknown Error"
+    static let goToAppText = "Go to App"
+    
+    static let previousFiles = "Previous Files:"
+    
+    static func sendingToText(fileName: String?) -> String {
+        return "Sending to: \(fileName ?? "Unknown File Name")"
+    }
+}

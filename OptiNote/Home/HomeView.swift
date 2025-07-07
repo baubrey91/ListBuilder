@@ -11,6 +11,9 @@ struct HomeView: View {
 
     var body: some View {
         switch self.viewModel.state {
+        case .error(let error):
+            //TODO: Fix
+            Text(error.localizedDescription)
         case .loading:
             ProgressView()
                 .onAppear {
@@ -45,7 +48,7 @@ struct HomeView: View {
             }
             .onOpenURL { url in
                 self.viewModel.fetchDeepLinkedImage()
-                if url.absoluteString.contains("googleDrive") {
+                if url.absoluteString.contains("googledrive") {
                     self.viewModel.selectedTab = .googleDriveListView
                 }
             }
@@ -59,8 +62,8 @@ struct HomeView: View {
                 }
                 .foregroundColor(.white)
                 .padding()
-                .background(Color(red: 66/255, green: 133/255, blue: 244/255))
-                .cornerRadius(8)
+                .background(Styler.backgroundColor)
+                .cornerRadius(Styler.cornerRadius)
             }
         }
     }
@@ -80,5 +83,9 @@ private enum Styler {
     //Previous Notes
     static let signInText = "Sign in with Google"
     static let signInImage = "globe"
+    
+    
+    static let backgroundColor = Color(red: 66/255, green: 133/255, blue: 244/255)
+    static let cornerRadius: CGFloat = 8
 }
 

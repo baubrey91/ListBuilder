@@ -1,4 +1,4 @@
-public struct Document: Codable {
+public struct Document: Codable, Hashable {
     public let id: String
     public let name: String
     

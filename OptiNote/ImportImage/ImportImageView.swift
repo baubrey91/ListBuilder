@@ -2,6 +2,11 @@ import SwiftUI
 import PhotosUI
 import OptiNoteShared
 
+#Preview {
+    ImportImageView(deepLinkedImage: .constant(nil))
+}
+
+
 struct ImportImageView: View {
     
     @StateObject var viewModel = ImportImageViewModel()
@@ -20,7 +25,7 @@ struct ImportImageView: View {
                         .resizable()
                         .frame(
                             width: viewModel.screenWidth,
-                            height: viewModel.screenWidth * 1.5
+                            height: viewModel.screenWidth * Styler.screenHeightMultiplier
                         )
                         .onAppear {
                             Task {
@@ -29,12 +34,16 @@ struct ImportImageView: View {
                         }
                 }
                 if let path = viewModel.path {
-                    path.stroke(style: StrokeStyle(lineWidth: 4, dash: [5]))
+                    path.stroke(style: Styler.strokeStyle)
                 }
             }
             .popover(isPresented: $viewModel.showingPopover) {
                 processedTextPopover
             }
+        }
+        .alert(isPresented: $viewModel.showingAlert) {
+            return .init(title: Text(viewModel.alertType?.alertText ?? Styler.unknownError))
+
         }
         .gesture(viewModel.drawGesture())
         .toolbar {
@@ -43,16 +52,17 @@ struct ImportImageView: View {
                     selection: $viewModel.selectedItems,
                     matching: .images,
                     photoLibrary: .shared()) {
-                        Image(systemName: "photo")
+                        Image(systemName: Styler.photoImageName)
                             .imageScale(.large)
                     }
             }
         }
-        .onChange(of: deepLinkedImage) { newImage in
-            if let newImage = newImage {
+        .onChange(of: deepLinkedImage) { _, newImage in
+            if let newImage = newImage,
+            let cgImage = newImage.cgImage {
                 viewModel.images = [newImage]
                 Task {
-                    await viewModel.extractTextFromImage(from: newImage.cgImage!)
+                    await viewModel.extractTextFromImage(from: cgImage)
                 }
             }
         }
@@ -62,7 +72,7 @@ struct ImportImageView: View {
         VStack {
             Text(self.viewModel.getCurrentFile())
             TextField(
-                "No text found",
+                Styler.noTextFound,
                 text: $viewModel.text,
                 axis: .vertical
             )
@@ -73,22 +83,32 @@ struct ImportImageView: View {
                 Button {
                     self.viewModel.showingPopover = false
                 } label: {
-                    Text("Back")
+                    Text(Styler.backText)
                 }
                 Spacer()
                 Button {
                     self.viewModel.sendToGoogle(text: viewModel.text)
                 } label: {
-                    Text("Send To Google")
+                    Text(Styler.sendToGoogle)
                 }
                 Spacer()
+            }
+            if self.viewModel.isSendingData {
+                CustomSpinner()
+            }
+            if let errorText = self.viewModel.errorText {
+                Text(errorText)
             }
         }
     }
 }
 
-#Preview {
-    ImportImageView(deepLinkedImage: .constant(nil))
+private enum Styler {
+    static let screenHeightMultiplier: CGFloat = 1.5
+    static let strokeStyle = StrokeStyle(lineWidth: 4, dash: [5])
+    static let photoImageName = "photo"
+    static let noTextFound = "No Text Found"
+    static let backText = "Back"
+    static let sendToGoogle = "Send To Google"
+    static let unknownError = "Unknown Error"
 }
-
-

@@ -7,6 +7,7 @@ enum HomeState {
     case loading
     case loggedIn
     case loggedOut
+    case error(of: Error)
 }
 
 final class HomeViewModel: NSObject, ObservableObject {
@@ -24,7 +25,7 @@ final class HomeViewModel: NSObject, ObservableObject {
     }
     
     func validateUser() {
-        GIDSignIn.sharedInstance.restorePreviousSignIn { user, error in
+        GIDSignIn.sharedInstance.restorePreviousSignIn { user, _ in
             if let user = user {
                 self.state = .loggedIn
                 self.saveTokenData(user: user)
@@ -35,6 +36,8 @@ final class HomeViewModel: NSObject, ObservableObject {
     }
 
     func googleSignIn() {
+        
+        // TODO: Remove
         let clientID = "342648598752-nf6j0cmo2sc4omk4g5blod9q7mgjarf6.apps.googleusercontent.com"
         let config = GIDConfiguration(clientID: clientID)
         
@@ -48,7 +51,7 @@ final class HomeViewModel: NSObject, ObservableObject {
             additionalScopes: ["https://www.googleapis.com/auth/drive"]
         ) { result, error in
             if let error = error {
-                print("Error doing Google Sign-In, \(error)")
+                self.state = .error(of: error)
                 return
             }
             if let user = result?.user {
@@ -64,15 +67,7 @@ final class HomeViewModel: NSObject, ObservableObject {
     }
     
     func fetchDeepLinkedImage() {
-        let fileManager = FileManager.default
-        if let containerURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: "group.com.brandonaubrey.OptiNote.sg") {
-            let fileURL = containerURL.appendingPathComponent("sharedImage.png")
-            if let data = try? Data(contentsOf: fileURL),
-               let uiImage = UIImage(data: data) {
-                self.deepLinkedImage = uiImage
-                try! fileManager.removeItem(at: fileURL)
-            }
-        }
+        self.deepLinkedImage = PersistenceManager.shared.getImage()
     }
 }
 

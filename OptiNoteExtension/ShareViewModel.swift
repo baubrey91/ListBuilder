@@ -7,7 +7,12 @@ enum ViewModelState {
     case loading
     case loadedWithResult
     case loadedWithNoResult
-    case failed(Error)
+    case error(Error)
+}
+
+enum ShareViewError: Error {
+    case loadingImageFailed
+    case convertingImageFailed
 }
 
 enum AlertType {
@@ -31,7 +36,7 @@ enum AlertType {
         case .noToken, .expiredToken:
             return "optinote://signIn"
         case .noFileSelected:
-            return "optinote://googleDrive"
+            return "optinote://googledrive"
         }
     }
 }
@@ -44,15 +49,15 @@ final class ShareViewModel: ObservableObject {
     @Published var state: ViewModelState = .loading
     @Published var showingAlert = false
     @Published var alertType: AlertType?
-    
+    @Published var isSendingData: Bool = false
+
+    let previousFiles: [Document] = PersistenceManager.shared.getPreviousFiles() ?? []
+
     private var openParentAppClosure: (String) -> Void
     
-    var currentFile: String {
-        PersistenceManager.shared.getFile()?.name ?? "No File Selected"
-    }
+    var currentFile: Document? = PersistenceManager.shared.getPreviousFiles()?.first
     
-//    var itemProviders: [NSItemProvider]
-    var extensionContext: NSExtensionContext?
+    private var extensionContext: NSExtensionContext?
     private var photoItem: NSItemProvider?
 
     
@@ -63,30 +68,25 @@ final class ShareViewModel: ObservableObject {
         self.photoItem = itemProviders?.first
     }
     
-    enum tempError: Error {
-        case foo
-    }
-    
-    func getImage() async throws -> CGImage {
+    func getImage() async -> CGImage? {
         do {
-            //TODO: Remove force unwrap
             let imageUrl = try await photoItem?.loadItem(forTypeIdentifier: UTType.image.identifier) as? URL
-            guard let cgImage = imageUrl?.toCGImage() else { throw tempError.foo }
+            guard let cgImage = imageUrl?.toCGImage() else {
+                self.state = .error(ShareViewError.loadingImageFailed)
+                return nil
+            }
             return cgImage
         } catch let error {
-            throw error
+            self.state = .error(error)
+            return nil
         }
     }
     
-    func verifySessionAndFile(image: CGImage) async {
-        if !self.accessTokenValid() || !self.fileExist() {
-            guard let data = UIImage(cgImage: image).pngData() else { return }
-            let fileManager = FileManager.default
-            if let containerURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: "group.com.brandonaubrey.OptiNote.sg") {
-                let fileURL = containerURL.appendingPathComponent("sharedImage.png")
-                try? data.write(to: fileURL)
-            }
-        }
+    func verifySessionAndFile(image: CGImage) {
+        guard self.accessTokenValid(),
+              self.fileExist(),
+              let data = UIImage(cgImage: image).pngData() else { return }
+        PersistenceManager.shared.saveImage(data: data)
     }
     
     func extractTextFromImage(from image: CGImage) async {
@@ -102,7 +102,7 @@ final class ShareViewModel: ObservableObject {
                 recognizedText += topCandidate.string + "\n"
             }
             Task { @MainActor in
-                self.text = recognizedText.replacingOccurrences(of: "\n", with: " ").lowercased()
+                self.text = "\n" + recognizedText.replacingOccurrences(of: "\n", with: " ").lowercased()
                 self.state = recognizedText.isEmpty ? .loadedWithNoResult : .loadedWithResult
             }
         }
@@ -111,32 +111,45 @@ final class ShareViewModel: ObservableObject {
         try? handler.perform([request])
     }
     
-    func sendUp(text: String, insertIndex: Int) async {
+    func sendUp(text: String) async {
+        await MainActor.run {
+            self.isSendingData = true
+        }
         guard let accessToken = PersistenceManager.shared.getAccessToken() else {
-            //TODO: access token error
             return
         }
         
-        guard let document = PersistenceManager.shared.getFile() else {
+        guard let fileId = currentFile?.id else {
             //TODO: file error
             return
         }
             Task {
                 do {
+                    let string: String = try await networkManager.getData(
+                        endpoint: .fetchFileInfo(fileId: fileId),
+                        accessToken: accessToken
+                    )
+                    let insertIndex = string.count
+
                     try await networkManager.sendData(
                         endpoint: .sendToDocs(
-                            docId: document.id,
+                            docId: fileId,
                             insertIndex: insertIndex,
                             text: text
                         ),
                         accessToken: accessToken
                     )
-                } catch let error {
-                    print(error)
+                    await MainActor.run {
+                        self.isSendingData = false
+                        self.closeShareView()
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.isSendingData = false
+                    }
                 }
             }
     }
-    
     
     //TODO: Make all private
     func accessTokenValid() -> Bool {
@@ -155,7 +168,7 @@ final class ShareViewModel: ObservableObject {
     }
     
     func fileExist() -> Bool {
-        guard PersistenceManager.shared.getFile() == nil else { return true }
+        guard PersistenceManager.shared.getPreviousFiles() == nil else { return true }
         DispatchQueue.main.async {
             self.showingAlert = true
             self.alertType = .noFileSelected
@@ -165,5 +178,10 @@ final class ShareViewModel: ObservableObject {
     
     func openParentApp(with urlString: String) {
         self.openParentAppClosure(urlString)
+        self.closeShareView()
+    }
+    
+    func closeShareView() {
+        self.extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
     }
 }

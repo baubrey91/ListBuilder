@@ -1,5 +1,22 @@
 import Foundation
 
+private struct InsertLocation: Codable {
+    let index: Int
+}
+
+private struct InsertText: Codable {
+    let location: InsertLocation
+    let text: String
+}
+
+private struct Request: Codable {
+    let insertText: InsertText
+}
+
+private struct Update: Codable {
+    let requests: [Request]
+}
+
 // MARK: - Protocol for dependency injection
 
 public protocol NetworkManagerType {
@@ -33,7 +50,6 @@ enum NetworkError: Error, LocalizedError {
 public final class NetworkManager: NetworkManagerType {
 
     private let session: URLSession
-//    private let accessToken: String
     
     let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
@@ -41,15 +57,8 @@ public final class NetworkManager: NetworkManagerType {
         return decoder
     }()
     
-    public init(
-        session: URLSession = .shared
-//        accessToken: String
-    ) {
+    public init(session: URLSession = .shared) {
         self.session = session
-//        self.accessToken = accessToken
-
-//        self.accessToken = "ya29.a0AeXRPp4UqoXMpvbYk5uZZXadJFZGGdqf8sDYJadbTkPa94FAPvGB0KN5zmqbkdoloSukANKAJNDnsOFuS3T1kUJTDK6p4Aow9ZhbNqi4VIrf2FkXawWsdYOrhsWOGVoIqcyQMIiYuNPS2VqHCetvahSDUJNj6U1C8BJQ8oPNaCgYKARESARASFQHGX2Mi-M4qoKi5qZ2av3O9OGApNw0175"
-        
     }
     
     public func getData<T: Decodable>(endpoint: Endpoint, accessToken: String) async throws -> T {
@@ -70,15 +79,16 @@ public final class NetworkManager: NetworkManagerType {
             throw NetworkError.invalidResponse
         }
         //TODO: Clean up
-        if !endpoint.url!.absoluteString.contains("text/plain") {
-            do {
-                let decodedData = try JSONDecoder().decode(T.self, from: data)
-                return decodedData
-            } catch {
-                throw NetworkError.decodingError
-            }
-        } else {
+        guard let url = endpoint.url,
+              !url.absoluteString.contains("text/plain") else {
             return try handleFileResponse(data: data)
+        }
+//        if !endpoint.url!.absoluteString.contains("text/plain") {
+        do {
+            let decodedData = try JSONDecoder().decode(T.self, from: data)
+            return decodedData
+        } catch {
+            throw NetworkError.decodingError
         }
     }
     
@@ -120,7 +130,7 @@ public final class NetworkManager: NetworkManagerType {
                   (200...299).contains(httpResponse.statusCode) else {
                 throw NetworkError.invalidResponse
             }
-        } catch let error {
+        } catch {
             throw NetworkError.encodingFailure
         }
     }
@@ -133,10 +143,8 @@ public enum Endpoint {
     case fetchFileInfo(fileId: String)
     var host: String {
         switch self {
-        case .sendToDocs:
-            "docs.googleapis.com"
-        case .fetchFiles, .fetchFileInfo:
-            "www.googleapis.com"
+        case .sendToDocs: "docs.googleapis.com"
+        case .fetchFiles, .fetchFileInfo: "www.googleapis.com"
         }
     }
     
@@ -146,7 +154,6 @@ public enum Endpoint {
             "/v1/documents/\(docId):batchUpdate"
         case .fetchFiles:
             "/drive/v3/files"
-            
             //TODO: Move to queryParam
         case .fetchFileInfo(let fileId):
             "/drive/v3/files/\(fileId)/export"
@@ -222,72 +229,3 @@ public enum Endpoint {
     }
 }
 
-struct InsertLocation: Codable {
-    let index: Int
-}
-
-struct InsertText: Codable {
-    let location: InsertLocation
-    let text: String
-}
-
-struct Request: Codable {
-    let insertText: InsertText
-}
-
-struct Update: Codable {
-    let requests: [Request]
-}
-
-
-public protocol InjectionKey {
-
-    /// The associated type representing the type of the dependency injection key's value.
-    associatedtype Value
-
-    /// The default value for the dependency injection key.
-    static var currentValue: Self.Value { get set }
-}
-
-private struct NetworkProviderKey: InjectionKey {
-    static var currentValue: NetworkManagerType = NetworkManager()
-}
-
-extension InjectedValues {
-    public var networkProvider: NetworkManagerType {
-        get { Self[NetworkProviderKey.self] }
-        set { Self[NetworkProviderKey.self] = newValue }
-    }
-}
-
-/// Provides access to injected dependencies.
-public struct InjectedValues {
-    
-    /// This is only used as an accessor to the computed properties within extensions of `InjectedValues`.
-    private static var current = InjectedValues()
-    
-    /// A static subscript for updating the `currentValue` of `InjectionKey` instances.
-    static subscript<K>(key: K.Type) -> K.Value where K : InjectionKey {
-        get { key.currentValue }
-        set { key.currentValue = newValue }
-    }
-    
-    /// A static subscript accessor for updating and references dependencies directly.
-    static subscript<T>(_ keyPath: WritableKeyPath<InjectedValues, T>) -> T {
-        get { current[keyPath: keyPath] }
-        set { current[keyPath: keyPath] = newValue }
-    }
-}
-
-@propertyWrapper
-public struct Injected<T> {
-    private let keyPath: WritableKeyPath<InjectedValues, T>
-    public var wrappedValue: T {
-        get { InjectedValues[keyPath] }
-        set { InjectedValues[keyPath] = newValue }
-    }
-    
-    public init(_ keyPath: WritableKeyPath<InjectedValues, T>) {
-        self.keyPath = keyPath
-    }
-}

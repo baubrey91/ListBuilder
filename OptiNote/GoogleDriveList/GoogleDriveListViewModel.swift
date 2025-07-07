@@ -22,7 +22,7 @@ final class GoogleDriveListViewModel: ObservableObject {
     }
     
     var selectedFileText: String {
-        if let fileName = PersistenceManager.shared.getFile()?.name {
+        if let fileName = PersistenceManager.shared.getPreviousFiles()?.first?.name {
             return Styler.fileSelectedText(with: fileName)
         } else {
             return Styler.fileSelectedError
@@ -31,7 +31,7 @@ final class GoogleDriveListViewModel: ObservableObject {
     
     func setSelectedFile(file: DriveFile) {
         self.isPresented = true
-        PersistenceManager.shared.setFile(file: file)
+        PersistenceManager.shared.setPreviousFiles(file: file)
     }
     
     func fetchFiles(for folderId: String?) {
