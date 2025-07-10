@@ -37,6 +37,8 @@ The image processing is done in three steps
 ## Sample 
 | Import to google |
 |------|
-|https://github.com/user-attachments/assets/f91342ca-a9a3-408e-b719-d9fd3092bd46|
+
+https://github.com/user-attachments/assets/f027540c-5573-4712-9849-b7ca6f3c4ee4
+
 
 # TODO add more
